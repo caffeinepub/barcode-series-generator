@@ -1,0 +1,89 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("/assets/fonts/JetBrainsMono.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    --background: 0.97 0 0;
+    --foreground: 0.15 0.01 260;
+    --card: 1 0 0;
+    --card-foreground: 0.15 0.01 260;
+    --popover: 1 0 0;
+    --popover-foreground: 0.15 0.01 260;
+    --primary: 0.72 0.18 65;
+    --primary-foreground: 0.1 0.02 65;
+    --secondary: 0.92 0 0;
+    --secondary-foreground: 0.25 0.01 260;
+    --muted: 0.93 0 0;
+    --muted-foreground: 0.52 0.01 260;
+    --accent: 0.92 0.02 65;
+    --accent-foreground: 0.25 0.02 65;
+    --destructive: 0.55 0.22 25;
+    --destructive-foreground: 1 0 0;
+    --border: 0.88 0 0;
+    --input: 0.88 0 0;
+    --ring: 0.72 0.18 65;
+    --radius: 0px;
+    --sidebar: 0.14 0.01 260;
+    --sidebar-foreground: 0.88 0 0;
+    --sidebar-primary: 0.72 0.18 65;
+    --sidebar-primary-foreground: 0.1 0.02 65;
+    --sidebar-accent: 0.2 0.01 260;
+    --sidebar-accent-foreground: 0.88 0 0;
+    --sidebar-border: 0.22 0.01 260;
+    --sidebar-ring: 0.72 0.18 65;
+    --chart-1: 0.72 0.18 65;
+    --chart-2: 0.65 0.15 150;
+    --chart-3: 0.6 0.15 220;
+    --chart-4: 0.68 0.16 320;
+    --chart-5: 0.64 0.15 30;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* Label card barcode scaling */
+.label-card svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #print-area,
+  #print-area * {
+    visibility: visible;
+  }
+  #print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2mm;
+    padding: 5mm;
+  }
+  .barcode-card-print {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
