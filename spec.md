@@ -1,37 +1,47 @@
-# Barcode Series Generator — Upgrade
+# Barcode Series Generator Pro
 
 ## Current State
-App has: sequential/custom barcode generation, 4 formats (Code128, Code39, EAN-13, UPC-A), save/load/delete series from backend, basic print (window.print).
+The app has a sidebar config panel with sequential/custom barcode generation, multiple formats (Code128, Code39, EAN-13, EAN-8, UPC-A, ITF-14), label templates (standard, warehouse, EAN, price), label size presets, copies-per-barcode, labels-per-page, save/load series to backend, and a basic print button using window.print().
+
+No login/logout, no menu navigation, no page setup, no font/color customization, no print preview, no thermal printer presets.
 
 ## Requested Changes (Diff)
 
 ### Add
-- **EAN-8 format** (8-digit EAN, compute check digit): add encoding to barcode.ts
-- **ITF-14 format** (Interleaved 2-of-5, 14-digit): add encoding to barcode.ts
-- **Label templates**: Standard Barcode, Warehouse Location Sticker, EAN Retail Label, Price Label
-- **Warehouse Location Sticker template**: large text fields for Zone, Aisle, Rack, Bin — rendered on the label alongside barcode
-- **Label size presets**: XS (25x15mm), Small (38x19mm), Medium (57x32mm), Large (102x64mm), Custom (user inputs width×height in mm)
-- **Labels per page selector**: 1, 2, 4, 6, 8, 12, 24, 30 per sheet
-- **Copies per barcode**: numeric input (1–99)
-- **Print preview area**: shows label layout at chosen size with template
-- **Improved print CSS**: honor selected label size via @page and label dimensions in mm; auto-detect printer via browser print dialog
+- Login / Logout via Internet Identity (authorization component)
+- Top navigation menu bar with sections: Generator, Page Setup, Print Settings, Data Manager, About
+- Page Setup panel: paper size (A4, Letter, Legal, 4x6", custom), orientation (portrait/landscape), margins
+- Font settings: font size (small/medium/large/custom pt), font family (Mono, Sans, Serif)
+- Color options: barcode bar color, background color, text color, label border color
+- One barcode per page layout option
+- TMS 244 Pro / thermal label printer presets (57mm, 62mm, 100mm roll widths)
+- Print preview modal showing paginated layout before printing
+- Auto/detect printer hints panel with suggested settings per media type
+- Data Manager page: view, rename, export (CSV) saved series
+- Export barcodes as SVG zip / CSV
+- Additional barcode formats: QR placeholder text, DataMatrix note
+- "Print with text below" toggle (already partial, make prominent)
+- More label templates: shipping, asset tag, product
 
 ### Modify
-- Config sidebar: add Label Template section below Format, add Size and Copies controls
-- Barcode grid: render labels using the selected template (warehouse sticker shows zone/aisle/rack/bin fields)
-- Print button: open browser print dialog (auto-detects printer)
-- Format options list: add EAN-8 and ITF-14
+- Header: add user avatar/login button on right
+- Print button: opens print preview modal instead of direct print
+- Sidebar: organized into collapsible sections
+- Footer: keep as-is
 
 ### Remove
 - Nothing removed
 
 ## Implementation Plan
-1. Add `encodeEAN8` and `encodeITF14` functions to `lib/barcode.ts`; export new `BarcodeFormat` union
-2. Create `lib/labelTemplates.ts` defining template types and their rendering configs
-3. Update `App.tsx`:
-   - Add template, size, copies state
-   - Add warehouse location fields (zone, aisle, rack, bin) shown when template = "warehouse"
-   - Pass new props to label rendering
-4. Create `components/LabelCard.tsx` — renders a label card based on selected template and size, used in grid and print
-5. Add print CSS in `index.css`: `@media print` rules using CSS variables for label size; hide non-print-area elements
-6. Wire together: generate uses copies multiplier, grid uses LabelCard, print button triggers window.print()
+1. Add authorization component for login/logout
+2. Regenerate backend to support user-scoped series and app settings storage
+3. Build enhanced frontend:
+   a. Navigation menu (tabs/sidebar nav) for Generator, Page Setup, Print Settings, Data Manager
+   b. Login/logout button in header using useInternetIdentity
+   c. Page setup state: paperSize, orientation, margins, labelsPerPage (from page size), one-per-page mode
+   d. Typography state: fontSize, fontFamily
+   e. Color state: barColor, bgColor, textColor, borderColor
+   f. Thermal printer presets panel (TMS 244 Pro, Zebra ZD, Dymo, Generic)
+   g. Print preview modal with paginated barcode layout
+   h. Data Manager tab: table of saved series, rename, export CSV
+   i. Enhanced label card using font/color settings

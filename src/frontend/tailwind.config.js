@@ -16,7 +16,7 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ["Cabinet Grotesk", "system-ui", "sans-serif"],
+        sans: ["Plus Jakarta Sans", "system-ui", "sans-serif"],
         mono: ["JetBrains Mono", "monospace"],
       },
       colors: {
@@ -69,6 +69,7 @@ export default {
           "accent-foreground": "oklch(var(--sidebar-accent-foreground))",
           border: "oklch(var(--sidebar-border))",
           ring: "oklch(var(--sidebar-ring))",
+          muted: "oklch(var(--sidebar-muted))",
         },
       },
       borderRadius: {

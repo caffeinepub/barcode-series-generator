@@ -17,11 +17,30 @@ export interface BarcodeSeries {
   'values' : Array<string>,
   'format' : string,
 }
+export interface UserProfile { 'name' : string }
+export type UserRole = { 'admin' : null } |
+  { 'user' : null } |
+  { 'guest' : null };
 export interface _SERVICE {
+  '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
+  'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'createSeries' : ActorMethod<[string, string, Array<string>], bigint>,
   'deleteSeries' : ActorMethod<[bigint], undefined>,
+  'getAllSeriesByUser' : ActorMethod<
+    [],
+    Array<[Principal, Array<BarcodeSeries>]>
+  >,
+  'getAllSeriesCount' : ActorMethod<[], bigint>,
+  'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
+  'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getSeries' : ActorMethod<[bigint], BarcodeSeries>,
+  'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
+  'getUserSettings' : ActorMethod<[], [] | [string]>,
+  'isCallerAdmin' : ActorMethod<[], boolean>,
   'listSeries' : ActorMethod<[], Array<BarcodeSeries>>,
+  'renameSeries' : ActorMethod<[bigint, string], undefined>,
+  'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
+  'saveUserSettings' : ActorMethod<[string], undefined>,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];

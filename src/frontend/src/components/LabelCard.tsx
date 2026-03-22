@@ -3,7 +3,20 @@ import type { BarcodeFormat } from "../lib/barcode";
 import { encodeBarcode, modulesToSVG } from "../lib/barcode";
 import type { LabelTemplate, WarehouseLocation } from "../lib/labelTemplates";
 
-interface LabelCardProps {
+export interface LabelStyleProps {
+  barColor?: string;
+  bgColor?: string;
+  textColor?: string;
+  fontSize?: number;
+  fontFamily?: string;
+  showText?: boolean;
+  textPosition?: "above" | "below";
+  borderColor?: string;
+  borderWidth?: number;
+  borderStyle?: "none" | "solid" | "dashed" | "dotted";
+}
+
+interface LabelCardProps extends LabelStyleProps {
   value: string;
   format: BarcodeFormat;
   template: LabelTemplate;
@@ -17,17 +30,23 @@ function BarcodeSVGInline({
   value,
   format,
   height = 60,
+  barColor = "#000000",
 }: {
   value: string;
   format: BarcodeFormat;
   height?: number;
+  barColor?: string;
 }) {
   const svgContent = useMemo(() => {
     if (!value) return null;
     const modules = encodeBarcode(value, format);
     if (!modules) return null;
-    return modulesToSVG(modules, height);
-  }, [value, format, height]);
+    const svg = modulesToSVG(modules, height);
+    // Apply bar color by replacing fill attributes
+    return svg
+      .replace(/fill="#?[0-9a-fA-F]{3,6}"/g, `fill="${barColor}"`)
+      .replace(/fill="black"/g, `fill="${barColor}"`);
+  }, [value, format, height, barColor]);
 
   if (!svgContent) {
     return (
@@ -70,6 +89,16 @@ export function LabelCard({
   heightMm,
   warehouseLocation,
   className = "",
+  barColor = "#000000",
+  bgColor = "#ffffff",
+  textColor = "#000000",
+  fontSize = 10,
+  fontFamily = "monospace",
+  showText = true,
+  textPosition = "below",
+  borderColor = "#cccccc",
+  borderWidth = 1,
+  borderStyle = "solid",
 }: LabelCardProps) {
   const loc = warehouseLocation;
   const isSmall = widthMm < 57;
@@ -81,36 +110,63 @@ export function LabelCard({
     minHeight: `${heightMm}mm`,
     maxWidth: `${widthMm}mm`,
     maxHeight: `${heightMm}mm`,
+    backgroundColor: bgColor,
+    border:
+      borderStyle === "none"
+        ? "none"
+        : `${borderWidth}px ${borderStyle} ${borderColor}`,
+    color: textColor,
+    fontFamily,
+    fontSize: `${fontSize}pt`,
   };
 
-  const baseClass =
-    "bg-white border border-gray-300 print:border-gray-400 overflow-hidden flex flex-col barcode-card-print";
+  const baseClass = "overflow-hidden flex flex-col barcode-card-print";
+
+  const textEl = showText ? (
+    <div
+      className="text-center truncate px-0.5"
+      style={{
+        color: textColor,
+        fontFamily,
+        fontSize: `${fontSize * 0.5}pt`,
+        paddingBottom: "1px",
+      }}
+    >
+      {value}
+    </div>
+  ) : null;
 
   if (template === "warehouse") {
     return (
       <div style={baseStyle} className={`${baseClass} ${className}`}>
         {isSmall ? (
-          // Small: just barcode + bin
           <>
             <div className="flex-1 flex items-center justify-center px-1 pt-1 min-h-0">
-              <BarcodeSVGInline value={value} format={format} height={40} />
+              <BarcodeSVGInline
+                value={value}
+                format={format}
+                height={40}
+                barColor={barColor}
+              />
             </div>
             {loc?.bin && (
               <div
-                className="text-center font-mono font-bold text-gray-800 leading-tight px-0.5 pb-0.5"
-                style={{ fontSize: "6px" }}
+                className="text-center font-mono font-bold leading-tight px-0.5 pb-0.5"
+                style={{ fontSize: "6px", color: textColor }}
               >
                 BIN: {loc.bin}
               </div>
             )}
           </>
         ) : (
-          // Large: show location grid + barcode
           <>
             {loc && (loc.zone || loc.aisle || loc.rack || loc.bin) && (
               <div
-                className="grid grid-cols-2 border-b border-gray-200 shrink-0"
-                style={{ fontSize: "7px" }}
+                className="grid grid-cols-2 shrink-0"
+                style={{
+                  borderBottom: `1px solid ${borderColor}`,
+                  fontSize: "7px",
+                }}
               >
                 {[
                   { label: "ZONE", val: loc.zone },
@@ -120,23 +176,27 @@ export function LabelCard({
                 ].map(({ label, val }) => (
                   <div
                     key={label}
-                    className="flex flex-col items-center justify-center border-gray-200 px-1 py-0.5"
+                    className="flex flex-col items-center justify-center px-1 py-0.5"
                     style={{
                       borderRight:
                         label === "ZONE" || label === "RACK"
-                          ? "1px solid #e5e7eb"
+                          ? `1px solid ${borderColor}`
                           : undefined,
                     }}
                   >
                     <span
-                      className="font-mono text-gray-400 leading-tight"
-                      style={{ fontSize: "5px" }}
+                      className="font-mono leading-tight"
+                      style={{
+                        fontSize: "5px",
+                        color: textColor,
+                        opacity: 0.6,
+                      }}
                     >
                       {label}
                     </span>
                     <span
-                      className="font-mono font-bold text-gray-900 leading-tight"
-                      style={{ fontSize: "8px" }}
+                      className="font-mono font-bold leading-tight"
+                      style={{ fontSize: "8px", color: textColor }}
                     >
                       {val || "—"}
                     </span>
@@ -145,14 +205,21 @@ export function LabelCard({
               </div>
             )}
             <div className="flex-1 flex items-center justify-center px-1 pt-0.5 min-h-0">
-              <BarcodeSVGInline value={value} format={format} height={45} />
+              <BarcodeSVGInline
+                value={value}
+                format={format}
+                height={45}
+                barColor={barColor}
+              />
             </div>
-            <div
-              className="text-center font-mono text-gray-500 pb-0.5 px-0.5 truncate"
-              style={{ fontSize: "5px" }}
-            >
-              {value}
-            </div>
+            {showText && (
+              <div
+                className="text-center font-mono pb-0.5 px-0.5 truncate"
+                style={{ fontSize: "5px", color: textColor }}
+              >
+                {value}
+              </div>
+            )}
           </>
         )}
       </div>
@@ -166,15 +233,30 @@ export function LabelCard({
         style={baseStyle}
         className={`${baseClass} items-center ${className}`}
       >
+        {showText && textPosition === "above" && (
+          <div
+            className="text-center font-mono font-semibold pt-0.5 tracking-wider"
+            style={{ fontSize: "6px", color: textColor }}
+          >
+            {displayValue}
+          </div>
+        )}
         <div className="flex-1 flex items-center justify-center px-1 pt-1 min-h-0 w-full">
-          <BarcodeSVGInline value={value} format={format} height={50} />
+          <BarcodeSVGInline
+            value={value}
+            format={format}
+            height={50}
+            barColor={barColor}
+          />
         </div>
-        <div
-          className="text-center font-mono font-semibold text-gray-800 pb-0.5 tracking-wider"
-          style={{ fontSize: "6px" }}
-        >
-          {displayValue}
-        </div>
+        {showText && textPosition !== "above" && (
+          <div
+            className="text-center font-mono font-semibold pb-0.5 tracking-wider"
+            style={{ fontSize: "6px", color: textColor }}
+          >
+            {displayValue}
+          </div>
+        )}
       </div>
     );
   }
@@ -185,37 +267,51 @@ export function LabelCard({
         style={baseStyle}
         className={`${baseClass} items-center justify-between ${className}`}
       >
-        <div
-          className="text-center font-mono font-bold text-gray-900 pt-0.5 w-full truncate"
-          style={{ fontSize: "7px", letterSpacing: "0.05em" }}
-        >
-          {value}
-        </div>
+        {showText && textPosition === "above" && (
+          <div
+            className="text-center font-mono font-bold pt-0.5 w-full truncate"
+            style={{
+              fontSize: "7px",
+              letterSpacing: "0.05em",
+              color: textColor,
+            }}
+          >
+            {value}
+          </div>
+        )}
         <div className="flex-1 flex items-center justify-center px-1 min-h-0 w-full">
-          <BarcodeSVGInline value={value} format={format} height={45} />
+          <BarcodeSVGInline
+            value={value}
+            format={format}
+            height={45}
+            barColor={barColor}
+          />
         </div>
-        <div
-          className="text-center font-mono font-bold text-gray-500 pb-0.5 tracking-widest"
-          style={{ fontSize: "5px" }}
-        >
-          ▶ SCAN ◀
-        </div>
+        {showText && textPosition !== "above" && (
+          <div
+            className="text-center font-mono font-bold pb-0.5 tracking-widest"
+            style={{ fontSize: "5px", color: textColor }}
+          >
+            ▶ SCAN ◀
+          </div>
+        )}
       </div>
     );
   }
 
-  // Standard template
+  // Standard
   return (
     <div style={baseStyle} className={`${baseClass} items-center ${className}`}>
+      {showText && textPosition === "above" && textEl}
       <div className="flex-1 flex items-center justify-center px-1 pt-1 min-h-0 w-full">
-        <BarcodeSVGInline value={value} format={format} height={55} />
+        <BarcodeSVGInline
+          value={value}
+          format={format}
+          height={55}
+          barColor={barColor}
+        />
       </div>
-      <div
-        className="text-center font-mono text-gray-600 pb-0.5 px-0.5 truncate w-full"
-        style={{ fontSize: "5px" }}
-      >
-        {value}
-      </div>
+      {showText && textPosition !== "above" && textEl}
     </div>
   );
 }

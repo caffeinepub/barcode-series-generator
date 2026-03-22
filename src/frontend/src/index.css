@@ -9,36 +9,44 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("/assets/fonts/PlusJakartaSans.woff2") format("woff2");
+  font-weight: 200 700;
+  font-display: swap;
+}
+
 @layer base {
   :root {
-    --background: 0.97 0 0;
-    --foreground: 0.15 0.01 260;
+    --background: 0.97 0.005 245;
+    --foreground: 0.14 0.02 255;
     --card: 1 0 0;
-    --card-foreground: 0.15 0.01 260;
+    --card-foreground: 0.14 0.02 255;
     --popover: 1 0 0;
-    --popover-foreground: 0.15 0.01 260;
+    --popover-foreground: 0.14 0.02 255;
     --primary: 0.72 0.18 65;
-    --primary-foreground: 0.1 0.02 65;
-    --secondary: 0.92 0 0;
-    --secondary-foreground: 0.25 0.01 260;
-    --muted: 0.93 0 0;
-    --muted-foreground: 0.52 0.01 260;
-    --accent: 0.92 0.02 65;
-    --accent-foreground: 0.25 0.02 65;
+    --primary-foreground: 0.08 0.02 65;
+    --secondary: 0.93 0.01 245;
+    --secondary-foreground: 0.2 0.02 255;
+    --muted: 0.94 0.005 245;
+    --muted-foreground: 0.52 0.01 255;
+    --accent: 0.93 0.03 65;
+    --accent-foreground: 0.25 0.04 65;
     --destructive: 0.55 0.22 25;
     --destructive-foreground: 1 0 0;
-    --border: 0.88 0 0;
-    --input: 0.88 0 0;
+    --border: 0.88 0.01 245;
+    --input: 0.88 0.01 245;
     --ring: 0.72 0.18 65;
-    --radius: 0px;
-    --sidebar: 0.14 0.01 260;
-    --sidebar-foreground: 0.88 0 0;
+    --radius: 6px;
+    --sidebar: 0.13 0.025 255;
+    --sidebar-foreground: 0.87 0.01 245;
     --sidebar-primary: 0.72 0.18 65;
-    --sidebar-primary-foreground: 0.1 0.02 65;
-    --sidebar-accent: 0.2 0.01 260;
-    --sidebar-accent-foreground: 0.88 0 0;
-    --sidebar-border: 0.22 0.01 260;
+    --sidebar-primary-foreground: 0.08 0.02 65;
+    --sidebar-accent: 0.19 0.025 255;
+    --sidebar-accent-foreground: 0.87 0.01 245;
+    --sidebar-border: 0.21 0.025 255;
     --sidebar-ring: 0.72 0.18 65;
+    --sidebar-muted: 0.45 0.01 255;
     --chart-1: 0.72 0.18 65;
     --chart-2: 0.65 0.15 150;
     --chart-3: 0.6 0.15 220;
@@ -53,37 +61,80 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: "Plus Jakarta Sans", system-ui, sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  code,
+  .font-mono {
+    font-family: "JetBrains Mono", monospace;
   }
 }
 
-/* Label card barcode scaling */
+/* Barcode card */
 .label-card svg {
   width: 100%;
   height: auto;
   display: block;
 }
 
+/* Tab active underline */
+[data-state="active"][role="tab"] {
+  border-bottom-width: 2px;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: oklch(var(--border));
+  border-radius: 3px;
+}
+
+/* ===== PRINT STYLES ===== */
 @media print {
   body * {
     visibility: hidden;
   }
+
   #print-area,
   #print-area * {
     visibility: visible;
   }
+
   #print-area {
-    position: absolute;
+    position: fixed;
     left: 0;
     top: 0;
     width: 100%;
+    background: white;
+  }
+
+  .print-page {
+    page-break-after: always;
+    page-break-inside: avoid;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+  }
+
+  .print-grid {
     display: flex;
     flex-wrap: wrap;
-    gap: 2mm;
-    padding: 5mm;
+    align-content: flex-start;
   }
+
   .barcode-card-print {
-    break-inside: avoid;
     page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  @page {
+    margin: 0;
   }
 }

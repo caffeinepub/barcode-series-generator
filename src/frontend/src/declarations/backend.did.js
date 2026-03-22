@@ -8,6 +8,11 @@
 
 import { IDL } from '@icp-sdk/core/candid';
 
+export const UserRole = IDL.Variant({
+  'admin' : IDL.Null,
+  'user' : IDL.Null,
+  'guest' : IDL.Null,
+});
 export const BarcodeSeries = IDL.Record({
   'id' : IDL.Nat,
   'name' : IDL.Text,
@@ -15,21 +20,47 @@ export const BarcodeSeries = IDL.Record({
   'values' : IDL.Vec(IDL.Text),
   'format' : IDL.Text,
 });
+export const UserProfile = IDL.Record({ 'name' : IDL.Text });
 
 export const idlService = IDL.Service({
+  '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
+  'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
   'createSeries' : IDL.Func(
       [IDL.Text, IDL.Text, IDL.Vec(IDL.Text)],
       [IDL.Nat],
       [],
     ),
   'deleteSeries' : IDL.Func([IDL.Nat], [], []),
+  'getAllSeriesByUser' : IDL.Func(
+      [],
+      [IDL.Vec(IDL.Tuple(IDL.Principal, IDL.Vec(BarcodeSeries)))],
+      ['query'],
+    ),
+  'getAllSeriesCount' : IDL.Func([], [IDL.Nat], ['query']),
+  'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
+  'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
   'getSeries' : IDL.Func([IDL.Nat], [BarcodeSeries], ['query']),
+  'getUserProfile' : IDL.Func(
+      [IDL.Principal],
+      [IDL.Opt(UserProfile)],
+      ['query'],
+    ),
+  'getUserSettings' : IDL.Func([], [IDL.Opt(IDL.Text)], ['query']),
+  'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
   'listSeries' : IDL.Func([], [IDL.Vec(BarcodeSeries)], ['query']),
+  'renameSeries' : IDL.Func([IDL.Nat, IDL.Text], [], []),
+  'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+  'saveUserSettings' : IDL.Func([IDL.Text], [], []),
 });
 
 export const idlInitArgs = [];
 
 export const idlFactory = ({ IDL }) => {
+  const UserRole = IDL.Variant({
+    'admin' : IDL.Null,
+    'user' : IDL.Null,
+    'guest' : IDL.Null,
+  });
   const BarcodeSeries = IDL.Record({
     'id' : IDL.Nat,
     'name' : IDL.Text,
@@ -37,16 +68,37 @@ export const idlFactory = ({ IDL }) => {
     'values' : IDL.Vec(IDL.Text),
     'format' : IDL.Text,
   });
+  const UserProfile = IDL.Record({ 'name' : IDL.Text });
   
   return IDL.Service({
+    '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
+    'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
     'createSeries' : IDL.Func(
         [IDL.Text, IDL.Text, IDL.Vec(IDL.Text)],
         [IDL.Nat],
         [],
       ),
     'deleteSeries' : IDL.Func([IDL.Nat], [], []),
+    'getAllSeriesByUser' : IDL.Func(
+        [],
+        [IDL.Vec(IDL.Tuple(IDL.Principal, IDL.Vec(BarcodeSeries)))],
+        ['query'],
+      ),
+    'getAllSeriesCount' : IDL.Func([], [IDL.Nat], ['query']),
+    'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
+    'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
     'getSeries' : IDL.Func([IDL.Nat], [BarcodeSeries], ['query']),
+    'getUserProfile' : IDL.Func(
+        [IDL.Principal],
+        [IDL.Opt(UserProfile)],
+        ['query'],
+      ),
+    'getUserSettings' : IDL.Func([], [IDL.Opt(IDL.Text)], ['query']),
+    'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
     'listSeries' : IDL.Func([], [IDL.Vec(BarcodeSeries)], ['query']),
+    'renameSeries' : IDL.Func([IDL.Nat, IDL.Text], [], []),
+    'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+    'saveUserSettings' : IDL.Func([IDL.Text], [], []),
   });
 };
 
