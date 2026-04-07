@@ -19,10 +19,11 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Info, Printer, ZoomIn } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAppContext } from "../contexts/AppContext";
 import type { PageSetup, PrintConfig } from "../contexts/AppContext";
 import { LABEL_SIZE_PRESETS } from "../lib/labelTemplates";
+import { printHTML } from "../utils/print";
 import { LabelCard } from "./LabelCard";
 
 const PRINTER_PRESETS: {
@@ -111,6 +112,24 @@ export function PrintSettingsTab() {
     generator,
   } = useAppContext();
   const [showPreview, setShowPreview] = useState(false);
+  const printAreaRef = useRef<HTMLDivElement>(null);
+
+  function handlePrint() {
+    if (!printAreaRef.current) {
+      window.print();
+      return;
+    }
+    const w =
+      pageSetup.orientation === "landscape"
+        ? pageSetup.paperHeight
+        : pageSetup.paperWidth;
+    const h =
+      pageSetup.orientation === "landscape"
+        ? pageSetup.paperWidth
+        : pageSetup.paperHeight;
+    const margins = `${pageSetup.marginTop}mm ${pageSetup.marginRight}mm ${pageSetup.marginBottom}mm ${pageSetup.marginLeft}mm`;
+    printHTML(printAreaRef.current.innerHTML, `${w}mm`, `${h}mm`, margins);
+  }
   const [includeText, setIncludeText] = useState(settings.showText);
   const [textPosition, setTextPosition] = useState<"above" | "below">(
     settings.textPosition,
@@ -358,7 +377,7 @@ export function PrintSettingsTab() {
               Print Preview
             </Button>
             <Button
-              onClick={() => window.print()}
+              onClick={handlePrint}
               className="flex-1"
               data-ocid="print.primary_button"
             >
@@ -395,7 +414,7 @@ export function PrintSettingsTab() {
                 </p>
               </div>
             ) : (
-              <div className="space-y-4 p-4">
+              <div ref={printAreaRef} className="space-y-4 p-4">
                 {printConfig.printMode === "onePerPage" ? (
                   generator.barcodes.map((v, i) => (
                     <div
@@ -470,7 +489,7 @@ export function PrintSettingsTab() {
             <Button
               onClick={() => {
                 setShowPreview(false);
-                setTimeout(() => window.print(), 100);
+                handlePrint();
               }}
               data-ocid="print.confirm_button"
             >

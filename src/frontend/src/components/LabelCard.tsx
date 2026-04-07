@@ -1,7 +1,11 @@
 import { useMemo } from "react";
 import type { BarcodeFormat } from "../lib/barcode";
 import { encodeBarcode, modulesToSVG } from "../lib/barcode";
-import type { LabelTemplate, WarehouseLocation } from "../lib/labelTemplates";
+import type {
+  HangTagData,
+  LabelTemplate,
+  WarehouseLocation,
+} from "../lib/labelTemplates";
 
 export interface LabelStyleProps {
   barColor?: string;
@@ -23,6 +27,8 @@ interface LabelCardProps extends LabelStyleProps {
   widthMm: number;
   heightMm: number;
   warehouseLocation?: WarehouseLocation;
+  hangTagData?: HangTagData;
+  barcodeHeightMode?: "normal" | "large";
   className?: string;
 }
 
@@ -88,6 +94,8 @@ export function LabelCard({
   widthMm,
   heightMm,
   warehouseLocation,
+  hangTagData,
+  barcodeHeightMode = "normal",
   className = "",
   barColor = "#000000",
   bgColor = "#ffffff",
@@ -102,6 +110,7 @@ export function LabelCard({
 }: LabelCardProps) {
   const loc = warehouseLocation;
   const isSmall = widthMm < 57;
+  const normalBarcodeHeight = barcodeHeightMode === "large" ? 80 : 55;
 
   const baseStyle: React.CSSProperties = {
     width: `${widthMm}mm`,
@@ -135,6 +144,121 @@ export function LabelCard({
       {value}
     </div>
   ) : null;
+
+  if (template === "hangtag") {
+    const tag = hangTagData;
+    const hangTagStyle: React.CSSProperties = {
+      width: `${widthMm}mm`,
+      height: `${heightMm}mm`,
+      minWidth: `${widthMm}mm`,
+      minHeight: `${heightMm}mm`,
+      maxWidth: `${widthMm}mm`,
+      maxHeight: `${heightMm}mm`,
+      backgroundColor: bgColor,
+      border:
+        borderStyle === "none"
+          ? "none"
+          : `${borderWidth}px ${borderStyle} ${borderColor}`,
+      display: "flex",
+      flexDirection: "column",
+      padding: "3mm 2mm",
+      gap: "1mm",
+    };
+
+    return (
+      <div
+        style={hangTagStyle}
+        className={`overflow-hidden hangtag-card barcode-card-print ${className}`}
+      >
+        {/* Brand */}
+        <div
+          className="hangtag-brand text-center font-bold truncate"
+          style={{
+            fontSize: `${Math.max(fontSize, 10)}pt`,
+            color: textColor,
+            fontFamily,
+          }}
+        >
+          {tag?.brandName || "Brand"}
+        </div>
+
+        {/* Product Name */}
+        <div
+          className="hangtag-product text-center truncate"
+          style={{
+            fontSize: `${Math.max(fontSize - 1, 8)}pt`,
+            color: textColor,
+            fontFamily,
+          }}
+        >
+          {tag?.productName || "Product Name"}
+        </div>
+
+        {/* SKU + Size */}
+        <div className="flex justify-between px-1" style={{ gap: "2px" }}>
+          <span
+            className="hangtag-sku truncate"
+            style={{
+              fontSize: `${Math.max(fontSize - 3, 6)}pt`,
+              color: `${textColor}99`,
+              fontFamily,
+            }}
+          >
+            SKU: {tag?.sku || "—"}
+          </span>
+          <span
+            className="hangtag-size"
+            style={{
+              fontSize: `${Math.max(fontSize - 2, 7)}pt`,
+              color: textColor,
+              fontFamily,
+            }}
+          >
+            {tag?.size ? `Size: ${tag.size}` : ""}
+          </span>
+        </div>
+
+        {/* Price */}
+        <div
+          className="hangtag-price text-center font-bold"
+          style={{
+            fontSize: `${Math.max(fontSize + 4, 14)}pt`,
+            color: textColor,
+            fontFamily,
+            margin: "1mm 0",
+          }}
+        >
+          {tag?.currency || "£"}
+          {tag?.price || "0.00"}
+        </div>
+
+        {/* Divider */}
+        <hr
+          className="hangtag-divider"
+          style={{ borderColor, margin: "1mm 0" }}
+        />
+
+        {/* Barcode */}
+        <div className="hangtag-barcode flex-1 flex items-end pb-1">
+          <BarcodeSVGInline
+            value={value}
+            format={format}
+            height={35}
+            barColor={barColor}
+          />
+        </div>
+
+        {showText && (
+          <div
+            className="text-center truncate"
+            style={{ fontSize: "5pt", color: textColor, fontFamily }}
+          >
+            {value}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   if (template === "warehouse") {
     return (
@@ -245,7 +369,7 @@ export function LabelCard({
           <BarcodeSVGInline
             value={value}
             format={format}
-            height={50}
+            height={barcodeHeightMode === "large" ? 70 : 50}
             barColor={barColor}
           />
         </div>
@@ -271,7 +395,7 @@ export function LabelCard({
           <div
             className="text-center font-mono font-bold pt-0.5 w-full truncate"
             style={{
-              fontSize: "7px",
+              fontSize: `${fontSize}pt`,
               letterSpacing: "0.05em",
               color: textColor,
             }}
@@ -283,14 +407,14 @@ export function LabelCard({
           <BarcodeSVGInline
             value={value}
             format={format}
-            height={45}
+            height={barcodeHeightMode === "large" ? 65 : 45}
             barColor={barColor}
           />
         </div>
         {showText && textPosition !== "above" && (
           <div
             className="text-center font-mono font-bold pb-0.5 tracking-widest"
-            style={{ fontSize: "5px", color: textColor }}
+            style={{ fontSize: `${fontSize * 0.6}pt`, color: textColor }}
           >
             ▶ SCAN ◀
           </div>
@@ -307,11 +431,23 @@ export function LabelCard({
         <BarcodeSVGInline
           value={value}
           format={format}
-          height={55}
+          height={normalBarcodeHeight}
           barColor={barColor}
         />
       </div>
-      {showText && textPosition !== "above" && textEl}
+      {showText && textPosition !== "above" && (
+        <div
+          className="text-center truncate px-0.5"
+          style={{
+            color: textColor,
+            fontFamily,
+            fontSize: `${fontSize * 0.6}pt`,
+            paddingBottom: "1px",
+          }}
+        >
+          {value}
+        </div>
+      )}
     </div>
   );
 }

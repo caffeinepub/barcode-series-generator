@@ -8,8 +8,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Toaster } from "@/components/ui/sonner";
 import {
+  Camera,
   ChevronDown,
-  Database,
+  Clock,
   LayoutTemplate,
   Loader2,
   LogIn,
@@ -21,19 +22,22 @@ import {
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
-import { DataManagerTab } from "./components/DataManagerTab";
 import { GeneratorTab } from "./components/GeneratorTab";
+import { History } from "./components/History";
+import { LabelDesigner } from "./components/LabelDesigner";
 import { PageSetupTab } from "./components/PageSetupTab";
 import { PrintSettingsTab } from "./components/PrintSettingsTab";
+import { Scanner } from "./components/Scanner";
 import { SettingsTab } from "./components/SettingsTab";
 import { AppProvider } from "./contexts/AppContext";
 import { useInternetIdentity } from "./hooks/useInternetIdentity";
 
 const NAV_ITEMS = [
   { value: "generator", label: "Generator", icon: ScanLine },
-  { value: "pagesetup", label: "Page Setup", icon: LayoutTemplate },
-  { value: "print", label: "Print Settings", icon: Printer },
-  { value: "data", label: "Data Manager", icon: Database },
+  { value: "scanner", label: "Scanner", icon: Camera },
+  { value: "designer", label: "Label Designer", icon: LayoutTemplate },
+  { value: "history", label: "History", icon: Clock },
+  { value: "print", label: "Print", icon: Printer },
   { value: "settings", label: "Settings", icon: Settings },
 ];
 
@@ -54,44 +58,44 @@ function Header({
   return (
     <header className="h-14 flex items-center gap-0 bg-sidebar border-b border-sidebar-border px-4 flex-shrink-0">
       {/* Logo */}
-      <div className="flex items-center gap-2.5 pr-4 border-r border-sidebar-border mr-2">
+      <div className="flex items-center gap-2.5 pr-4 border-r border-sidebar-border mr-3">
         <div className="w-7 h-7 rounded bg-primary/20 flex items-center justify-center">
           <ScanLine className="w-4 h-4 text-primary" />
         </div>
         <div className="leading-tight">
           <p className="text-sidebar-foreground font-semibold text-sm leading-none">
-            Barcode Series
+            BSG Pro
           </p>
           <p className="text-primary text-xs font-mono leading-none mt-0.5">
-            PRO
+            BARCODE
           </p>
         </div>
       </div>
 
       {/* Nav */}
-      <nav className="flex items-center gap-0.5 flex-1">
+      <nav className="flex items-center gap-0.5 flex-1 overflow-x-auto">
         {NAV_ITEMS.map(({ value, label, icon: Icon }) => (
           <button
             key={value}
             type="button"
             onClick={() => setActiveTab(value)}
             data-ocid={`nav.${value}.link`}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors whitespace-nowrap ${
               activeTab === value
                 ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                : "text-sidebar-muted hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+                : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
             }`}
           >
             <Icon className="w-3.5 h-3.5" />
-            {label}
+            <span className="hidden sm:inline">{label}</span>
           </button>
         ))}
       </nav>
 
       {/* Auth */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 ml-2">
         {isInitializing ? (
-          <Loader2 className="w-4 h-4 animate-spin text-sidebar-muted" />
+          <Loader2 className="w-4 h-4 animate-spin text-sidebar-foreground/40" />
         ) : isLoggedIn ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -102,7 +106,9 @@ function Header({
                 data-ocid="nav.dropdown_menu"
               >
                 <User className="w-3.5 h-3.5" />
-                <span className="text-xs font-mono">{shortPrincipal}</span>
+                <span className="text-xs font-mono hidden sm:inline">
+                  {shortPrincipal}
+                </span>
                 <ChevronDown className="w-3 h-3" />
               </Button>
             </DropdownMenuTrigger>
@@ -115,11 +121,11 @@ function Header({
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onClick={() => setActiveTab("data")}
+                onClick={() => setActiveTab("history")}
                 data-ocid="nav.link"
               >
-                <Database className="w-3.5 h-3.5 mr-2" />
-                My Saved Series
+                <Clock className="w-3.5 h-3.5 mr-2" />
+                History
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -157,9 +163,9 @@ function AppShell() {
   const [activeTab, setActiveTab] = useState("generator");
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-background">
+    <div className="flex flex-col h-screen overflow-hidden">
       <Header activeTab={activeTab} setActiveTab={setActiveTab} />
-      <main className="flex-1 overflow-hidden">
+      <main className="flex-1 overflow-hidden main-gradient">
         <motion.div
           key={activeTab}
           initial={{ opacity: 0, y: 4 }}
@@ -168,15 +174,16 @@ function AppShell() {
           className="h-full"
         >
           {activeTab === "generator" && <GeneratorTab />}
-          {activeTab === "pagesetup" && <PageSetupTab />}
+          {activeTab === "scanner" && <Scanner />}
+          {activeTab === "designer" && <LabelDesigner />}
+          {activeTab === "history" && <History />}
           {activeTab === "print" && <PrintSettingsTab />}
-          {activeTab === "data" && <DataManagerTab />}
           {activeTab === "settings" && <SettingsTab />}
         </motion.div>
       </main>
       <footer className="border-t border-sidebar-border py-2 px-4 bg-sidebar text-center">
         <p className="text-xs" style={{ color: "oklch(var(--sidebar-muted))" }}>
-          &copy; {new Date().getFullYear()}. Built with &#10084;&#65039; using{" "}
+          &copy; {new Date().getFullYear()}. Built with &#10084; using{" "}
           <a
             href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname)}`}
             target="_blank"

@@ -18,7 +18,7 @@
 
 @layer base {
   :root {
-    --background: 0.97 0.005 245;
+    --background: 0.96 0.04 210;
     --foreground: 0.14 0.02 255;
     --card: 1 0 0;
     --card-foreground: 0.14 0.02 255;
@@ -68,6 +68,11 @@
   .font-mono {
     font-family: "JetBrains Mono", monospace;
   }
+}
+
+/* Sky blue to light green gradient main content */
+.main-gradient {
+  background: linear-gradient(135deg, #c7e8f5 0%, #c8f0c8 100%);
 }
 
 /* Barcode card */
@@ -130,6 +135,13 @@
   }
 
   .barcode-card-print {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .hangtag-card {
+    display: flex;
+    flex-direction: column;
     page-break-inside: avoid;
     break-inside: avoid;
   }

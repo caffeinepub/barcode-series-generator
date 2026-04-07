@@ -16,14 +16,16 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   ChevronRight,
   Download,
+  ImagePlus,
   Loader2,
-  Plus,
+  Printer,
   Save,
   ScanLine,
   Trash2,
+  X,
 } from "lucide-react";
 import { motion } from "motion/react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useAppContext } from "../contexts/AppContext";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
@@ -34,12 +36,14 @@ import {
 } from "../hooks/useQueries";
 import type { BarcodeFormat } from "../lib/barcode";
 import type {
+  HangTagData,
   LabelSizePreset,
   LabelTemplate,
   WarehouseLocation,
 } from "../lib/labelTemplates";
 import { LABEL_SIZE_PRESETS } from "../lib/labelTemplates";
 import { LabelCard } from "./LabelCard";
+import { type PrintItem, PrintPreviewModal } from "./PrintPreviewModal";
 
 const FORMAT_OPTIONS: { value: BarcodeFormat; label: string }[] = [
   { value: "CODE128", label: "Code 128" },
@@ -55,6 +59,7 @@ const TEMPLATE_OPTIONS: { value: LabelTemplate; label: string }[] = [
   { value: "warehouse", label: "Warehouse Location" },
   { value: "ean", label: "EAN Retail" },
   { value: "price", label: "Price Label" },
+  { value: "hangtag", label: "Hang Tag" },
 ];
 
 const SIZE_OPTIONS: { value: LabelSizePreset; label: string }[] = [
@@ -62,8 +67,25 @@ const SIZE_OPTIONS: { value: LabelSizePreset; label: string }[] = [
   { value: "sm", label: "Small — 38×19mm" },
   { value: "md", label: "Medium — 57×32mm" },
   { value: "lg", label: "Large — 102×64mm" },
+  { value: "hangtag", label: "Hang Tag — 50×80mm" },
   { value: "custom", label: "Custom" },
 ];
+
+const TEXT_SIZE_OPTIONS: {
+  value: "sm" | "md" | "lg" | "xl";
+  label: string;
+  pt: number;
+}[] = [
+  { value: "sm", label: "Small", pt: 7 },
+  { value: "md", label: "Medium", pt: 10 },
+  { value: "lg", label: "Large", pt: 14 },
+  { value: "xl", label: "XL", pt: 18 },
+];
+
+interface BarcodeItemMeta {
+  description: string;
+  photoDataUrl: string | null;
+}
 
 export function GeneratorTab() {
   const { settings, generator, setGenerator } = useAppContext();
@@ -80,12 +102,30 @@ export function GeneratorTab() {
   const [warehouseLocation, setWarehouseLocation] = useState<WarehouseLocation>(
     { zone: "A", aisle: "1", rack: "2", bin: "3" },
   );
+  const [hangTag, setHangTag] = useState<HangTagData>({
+    brandName: "",
+    productName: "",
+    sku: "",
+    size: "",
+    price: "",
+    currency: "£",
+  });
+  const [detailTextSize, setDetailTextSize] = useState<
+    "sm" | "md" | "lg" | "xl"
+  >("md");
+  const [largeBarcodeHeight, setLargeBarcodeHeight] = useState(false);
   const [seriesName, setSeriesName] = useState("");
   const [copiesPerBarcode, setCopiesPerBarcode] = useState(1);
+  const [itemMeta, setItemMeta] = useState<Record<number, BarcodeItemMeta>>({});
+  const [showPrint, setShowPrint] = useState(false);
+  const photoRefs = useRef<Record<number, HTMLInputElement | null>>({});
 
   const { data: savedSeries } = useListSeries();
   const createMutation = useCreateSeries();
   const deleteMutation = useDeleteSeries();
+
+  const textSizePt =
+    TEXT_SIZE_OPTIONS.find((o) => o.value === detailTextSize)?.pt ?? 10;
 
   const labelSize = useMemo(() => {
     if (generator.labelSizePreset === "custom")
@@ -109,6 +149,13 @@ export function GeneratorTab() {
           padLength > 0 ? String(i).padStart(padLength, "0") : String(i);
         vals.push(`${prefix}${numStr}`);
       }
+      if (copiesPerBarcode > 1) {
+        const expanded: string[] = [];
+        for (const v of vals) {
+          for (let c = 0; c < copiesPerBarcode; c++) expanded.push(v);
+        }
+        vals = expanded;
+      }
     } else {
       vals = customValues
         .split("\n")
@@ -116,20 +163,36 @@ export function GeneratorTab() {
         .filter(Boolean);
     }
     if (vals.length === 0) {
-      toast.error("No values to generate");
+      toast.error("No barcodes to generate");
       return;
     }
     if (vals.length > 500) {
-      toast.error("Maximum 500 barcodes at once");
+      toast.error("Max 500 barcodes at a time");
       return;
     }
-    const expanded: string[] = [];
-    for (const v of vals)
-      for (let c = 0; c < copiesPerBarcode; c++) expanded.push(v);
-    setGenerator({ ...generator, barcodes: expanded });
-    toast.success(
-      `Generated ${expanded.length} barcode${expanded.length !== 1 ? "s" : ""}`,
-    );
+    // Auto-set label size for hangtag template
+    const newLabelSizePreset =
+      generator.template === "hangtag" &&
+      generator.labelSizePreset !== "hangtag" &&
+      generator.labelSizePreset !== "custom"
+        ? "hangtag"
+        : generator.labelSizePreset;
+    setGenerator({
+      ...generator,
+      barcodes: vals,
+      labelSizePreset: newLabelSizePreset,
+      warehouseLocation,
+    });
+    setItemMeta({});
+    toast.success(`Generated ${vals.length} barcodes`);
+  }
+
+  function loadSeries(s: { format: string; values: string[] }) {
+    setGenerator({
+      ...generator,
+      format: s.format as BarcodeFormat,
+      barcodes: s.values,
+    });
   }
 
   async function saveSeries() {
@@ -147,40 +210,24 @@ export function GeneratorTab() {
         format: generator.format,
         values: generator.barcodes,
       });
-      toast.success(`Saved series "${seriesName}"`);
+      toast.success("Series saved");
       setSeriesName("");
     } catch {
-      toast.error("Failed to save series");
+      toast.error("Failed to save");
     }
-  }
-
-  function loadSeries(series: { format: string; values: string[] }) {
-    setGenerator({
-      ...generator,
-      format: series.format as BarcodeFormat,
-      barcodes: series.values,
-    });
-    toast.success("Series loaded");
   }
 
   async function deleteSeries(id: bigint) {
     try {
       await deleteMutation.mutateAsync(id);
-      toast.success("Series deleted");
+      toast.success("Deleted");
     } catch {
       toast.error("Failed to delete");
     }
   }
 
   function exportCSV() {
-    if (generator.barcodes.length === 0) {
-      toast.error("No barcodes to export");
-      return;
-    }
-    const csv = [
-      "#,Value",
-      ...generator.barcodes.map((v, i) => `${i + 1},${v}`),
-    ].join("\n");
+    const csv = generator.barcodes.join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -190,10 +237,48 @@ export function GeneratorTab() {
     URL.revokeObjectURL(url);
   }
 
+  function handlePhotoUpload(index: number, file: File) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setItemMeta((prev) => ({
+        ...prev,
+        [index]: {
+          ...(prev[index] ?? { description: "", photoDataUrl: null }),
+          photoDataUrl: e.target?.result as string,
+        },
+      }));
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function setDescription(index: number, desc: string) {
+    setItemMeta((prev) => ({
+      ...prev,
+      [index]: {
+        ...(prev[index] ?? { description: "", photoDataUrl: null }),
+        description: desc,
+      },
+    }));
+  }
+
+  function openPrintPreview() {
+    if (generator.barcodes.length === 0) {
+      toast.error("Generate barcodes first");
+      return;
+    }
+    setShowPrint(true);
+  }
+
+  const printItems: PrintItem[] = generator.barcodes.map((v, i) => ({
+    value: v,
+    description: itemMeta[i]?.description || undefined,
+    photoDataUrl: itemMeta[i]?.photoDataUrl || undefined,
+  }));
+
   return (
     <div className="flex h-full overflow-hidden">
       {/* Left Panel */}
-      <div className="w-80 flex-shrink-0 border-r border-border bg-card flex flex-col overflow-hidden">
+      <div className="w-80 flex-shrink-0 border-r border-border bg-card/90 backdrop-blur-sm flex flex-col overflow-hidden">
         <ScrollArea className="flex-1">
           <div className="p-4 space-y-4">
             {/* Format + Template */}
@@ -229,9 +314,21 @@ export function GeneratorTab() {
               </Label>
               <Select
                 value={generator.template}
-                onValueChange={(v) =>
-                  setGenerator({ ...generator, template: v as LabelTemplate })
-                }
+                onValueChange={(v) => {
+                  const tmpl = v as LabelTemplate;
+                  // Auto-set size to hangtag when hangtag template selected
+                  const newPreset =
+                    tmpl === "hangtag"
+                      ? "hangtag"
+                      : generator.labelSizePreset === "hangtag"
+                        ? "md"
+                        : generator.labelSizePreset;
+                  setGenerator({
+                    ...generator,
+                    template: tmpl,
+                    labelSizePreset: newPreset,
+                  });
+                }}
               >
                 <SelectTrigger className="h-8 text-sm">
                   <SelectValue />
@@ -308,6 +405,56 @@ export function GeneratorTab() {
               )}
             </div>
 
+            {/* Detail Text Size + Large Barcode */}
+            <div className="space-y-2 p-3 bg-accent/30 rounded-md border border-border/50">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Barcode Detail Options
+              </Label>
+              <div className="space-y-2">
+                <div>
+                  <Label className="text-xs text-muted-foreground">
+                    Detail Text Size
+                  </Label>
+                  <Select
+                    value={detailTextSize}
+                    onValueChange={(v) =>
+                      setDetailTextSize(v as "sm" | "md" | "lg" | "xl")
+                    }
+                  >
+                    <SelectTrigger
+                      className="h-7 text-xs mt-1"
+                      data-ocid="generator.select"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TEXT_SIZE_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label} ({o.pt}pt)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="checkbox"
+                    id="largeBarcodeHeight"
+                    checked={largeBarcodeHeight}
+                    onChange={(e) => setLargeBarcodeHeight(e.target.checked)}
+                    className="w-3.5 h-3.5"
+                    data-ocid="generator.checkbox"
+                  />
+                  <Label
+                    htmlFor="largeBarcodeHeight"
+                    className="text-xs text-muted-foreground cursor-pointer"
+                  >
+                    Large Barcode Height
+                  </Label>
+                </div>
+              </div>
+            </div>
+
             {generator.template === "warehouse" && (
               <div className="space-y-2 p-3 bg-accent/40 rounded-md">
                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -332,6 +479,113 @@ export function GeneratorTab() {
                       />
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {generator.template === "hangtag" && (
+              <div className="space-y-2 p-3 bg-accent/40 rounded-md">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Hang Tag Details
+                </Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="col-span-2">
+                    <Label className="text-xs text-muted-foreground">
+                      Brand Name
+                    </Label>
+                    <Input
+                      value={hangTag.brandName}
+                      onChange={(e) =>
+                        setHangTag({ ...hangTag, brandName: e.target.value })
+                      }
+                      className="h-7 text-xs"
+                      placeholder="My Brand"
+                      data-ocid="generator.input"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Label className="text-xs text-muted-foreground">
+                      Product Name
+                    </Label>
+                    <Input
+                      value={hangTag.productName}
+                      onChange={(e) =>
+                        setHangTag({ ...hangTag, productName: e.target.value })
+                      }
+                      className="h-7 text-xs"
+                      placeholder="Classic T-Shirt"
+                      data-ocid="generator.input"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">SKU</Label>
+                    <Input
+                      value={hangTag.sku}
+                      onChange={(e) =>
+                        setHangTag({ ...hangTag, sku: e.target.value })
+                      }
+                      className="h-7 text-xs"
+                      placeholder="SKU-001"
+                      data-ocid="generator.input"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">
+                      Size
+                    </Label>
+                    <Input
+                      value={hangTag.size}
+                      onChange={(e) =>
+                        setHangTag({ ...hangTag, size: e.target.value })
+                      }
+                      className="h-7 text-xs"
+                      placeholder="M / 32 / XL"
+                      data-ocid="generator.input"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">
+                      Currency
+                    </Label>
+                    <Select
+                      value={hangTag.currency}
+                      onValueChange={(v) =>
+                        setHangTag({
+                          ...hangTag,
+                          currency: v as HangTagData["currency"],
+                        })
+                      }
+                    >
+                      <SelectTrigger
+                        className="h-7 text-xs"
+                        data-ocid="generator.select"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="£">£ GBP</SelectItem>
+                        <SelectItem value="$">$ USD</SelectItem>
+                        <SelectItem value="₹">₹ INR</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">
+                      Price
+                    </Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={hangTag.price}
+                      onChange={(e) =>
+                        setHangTag({ ...hangTag, price: e.target.value })
+                      }
+                      className="h-7 text-xs"
+                      placeholder="9.99"
+                      data-ocid="generator.input"
+                    />
+                  </div>
                 </div>
               </div>
             )}
@@ -440,7 +694,7 @@ export function GeneratorTab() {
                   value={customValues}
                   onChange={(e) => setCustomValues(e.target.value)}
                   className="text-xs font-mono h-28 resize-none"
-                  placeholder="ITEM001&#10;ITEM002&#10;ITEM003"
+                  placeholder={"ITEM001\nITEM002\nITEM003"}
                   data-ocid="generator.textarea"
                 />
               </TabsContent>
@@ -454,6 +708,18 @@ export function GeneratorTab() {
               <ScanLine className="w-4 h-4 mr-2" />
               Generate Barcodes
             </Button>
+
+            {generator.barcodes.length > 0 && (
+              <Button
+                variant="default"
+                className="w-full bg-green-600 hover:bg-green-700"
+                onClick={openPrintPreview}
+                data-ocid="generator.print_button"
+              >
+                <Printer className="w-4 h-4 mr-2" />
+                Preview & Print ({generator.barcodes.length})
+              </Button>
+            )}
 
             <Separator />
 
@@ -551,7 +817,7 @@ export function GeneratorTab() {
 
       {/* Right Preview */}
       <div className="flex-1 overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-muted/30">
+        <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-card/70 backdrop-blur-sm">
           <span className="text-sm font-medium">
             Preview
             {generator.barcodes.length > 0 && (
@@ -581,7 +847,7 @@ export function GeneratorTab() {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="flex flex-wrap gap-2"
+                className="flex flex-wrap gap-3"
               >
                 {generator.barcodes.slice(0, 100).map((v, i) => (
                   <motion.div
@@ -589,8 +855,35 @@ export function GeneratorTab() {
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: Math.min(i * 0.02, 0.5) }}
+                    className="flex flex-col gap-1"
                     data-ocid={`generator.item.${i + 1}`}
                   >
+                    {/* Per-item photo */}
+                    {itemMeta[i]?.photoDataUrl && (
+                      <div className="relative">
+                        <img
+                          src={itemMeta[i].photoDataUrl!}
+                          alt=""
+                          className="rounded object-contain"
+                          style={{
+                            width: `${labelSize.widthMm}mm`,
+                            maxHeight: "30px",
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="absolute top-0 right-0 w-4 h-4 bg-black/60 text-white rounded-full text-xs flex items-center justify-center"
+                          onClick={() =>
+                            setItemMeta((prev) => ({
+                              ...prev,
+                              [i]: { ...prev[i], photoDataUrl: null },
+                            }))
+                          }
+                        >
+                          <X className="w-2.5 h-2.5" />
+                        </button>
+                      </div>
+                    )}
                     <LabelCard
                       value={v}
                       format={generator.format}
@@ -602,10 +895,16 @@ export function GeneratorTab() {
                           ? generator.warehouseLocation
                           : undefined
                       }
+                      hangTagData={
+                        generator.template === "hangtag" ? hangTag : undefined
+                      }
+                      barcodeHeightMode={
+                        largeBarcodeHeight ? "large" : "normal"
+                      }
                       barColor={settings.barColor}
                       bgColor={settings.bgColor}
                       textColor={settings.textColor}
-                      fontSize={settings.fontSize}
+                      fontSize={textSizePt}
                       fontFamily={settings.fontFamily}
                       showText={settings.showText}
                       textPosition={settings.textPosition}
@@ -613,10 +912,43 @@ export function GeneratorTab() {
                       borderWidth={settings.borderWidth}
                       borderStyle={settings.borderStyle}
                     />
+                    {/* Per-item description & photo upload */}
+                    <div
+                      className="flex gap-1 items-center"
+                      style={{ width: `${labelSize.widthMm}mm` }}
+                    >
+                      <input
+                        type="text"
+                        placeholder="Note..."
+                        value={itemMeta[i]?.description || ""}
+                        onChange={(e) => setDescription(i, e.target.value)}
+                        className="flex-1 text-xs border border-input rounded px-1 py-0.5 bg-background/80 min-w-0"
+                      />
+                      <button
+                        type="button"
+                        className="shrink-0 w-6 h-6 flex items-center justify-center rounded border border-input bg-background/80 hover:bg-accent"
+                        onClick={() => photoRefs.current[i]?.click()}
+                        title="Add photo"
+                      >
+                        <ImagePlus className="w-3.5 h-3.5" />
+                      </button>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        ref={(el) => {
+                          photoRefs.current[i] = el;
+                        }}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handlePhotoUpload(i, file);
+                        }}
+                      />
+                    </div>
                   </motion.div>
                 ))}
                 {generator.barcodes.length > 100 && (
-                  <div className="flex items-center justify-center p-3 text-xs text-muted-foreground border border-dashed rounded">
+                  <div className="text-xs text-muted-foreground p-2 self-end">
                     +{generator.barcodes.length - 100} more
                   </div>
                 )}
@@ -624,38 +956,34 @@ export function GeneratorTab() {
             )}
           </div>
         </ScrollArea>
-
-        {/* Print area (hidden visually, used for printing) */}
-        <div id="print-area" style={{ display: "none" }}>
-          <div className="print-grid p-4">
-            {generator.barcodes.map((v, i) => (
-              <LabelCard
-                key={`print-${String(i)}`}
-                value={v}
-                format={generator.format}
-                template={generator.template}
-                widthMm={labelSize.widthMm}
-                heightMm={labelSize.heightMm}
-                warehouseLocation={
-                  generator.template === "warehouse"
-                    ? generator.warehouseLocation
-                    : undefined
-                }
-                barColor={settings.barColor}
-                bgColor={settings.bgColor}
-                textColor={settings.textColor}
-                fontSize={settings.fontSize}
-                fontFamily={settings.fontFamily}
-                showText={settings.showText}
-                textPosition={settings.textPosition}
-                borderColor={settings.borderColor}
-                borderWidth={settings.borderWidth}
-                borderStyle={settings.borderStyle}
-              />
-            ))}
-          </div>
-        </div>
       </div>
+
+      <PrintPreviewModal
+        open={showPrint}
+        onClose={() => setShowPrint(false)}
+        items={printItems}
+        format={generator.format}
+        template={generator.template}
+        warehouseLocation={
+          generator.template === "warehouse"
+            ? generator.warehouseLocation
+            : undefined
+        }
+        hangTagData={generator.template === "hangtag" ? hangTag : undefined}
+        barcodeHeightMode={largeBarcodeHeight ? "large" : "normal"}
+        widthMm={labelSize.widthMm}
+        heightMm={labelSize.heightMm}
+        barColor={settings.barColor}
+        bgColor={settings.bgColor}
+        textColor={settings.textColor}
+        fontSize={textSizePt}
+        fontFamily={settings.fontFamily}
+        showText={settings.showText}
+        textPosition={settings.textPosition}
+        borderColor={settings.borderColor}
+        borderWidth={settings.borderWidth}
+        borderStyle={settings.borderStyle}
+      />
     </div>
   );
 }

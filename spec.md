@@ -1,47 +1,49 @@
-# Barcode Series Generator Pro
+# Barcode Series Generator (BSG Pro) - Version 6
 
 ## Current State
-The app has a sidebar config panel with sequential/custom barcode generation, multiple formats (Code128, Code39, EAN-13, EAN-8, UPC-A, ITF-14), label templates (standard, warehouse, EAN, price), label size presets, copies-per-barcode, labels-per-page, save/load series to backend, and a basic print button using window.print().
-
-No login/logout, no menu navigation, no page setup, no font/color customization, no print preview, no thermal printer presets.
+- Full-featured barcode generator with tabs: Generator, Page Setup, Print Settings, Data Manager, Settings, Scanner
+- LabelCard component renders standard, warehouse, EAN, and price label templates
+- PrintPreviewModal with printer presets (A4, Letter, TSC, TMS, Zebra, Dymo)
+- Sky-blue/light-green gradient background already referenced in conversation but NOT yet applied
+- Per-label photos and descriptions supported
+- Internet Identity login for cloud storage
+- No hang tag template exists
+- No large/customizable barcode detail text size option
+- Print process uses printHTML utility
 
 ## Requested Changes (Diff)
 
 ### Add
-- Login / Logout via Internet Identity (authorization component)
-- Top navigation menu bar with sections: Generator, Page Setup, Print Settings, Data Manager, About
-- Page Setup panel: paper size (A4, Letter, Legal, 4x6", custom), orientation (portrait/landscape), margins
-- Font settings: font size (small/medium/large/custom pt), font family (Mono, Sans, Serif)
-- Color options: barcode bar color, background color, text color, label border color
-- One barcode per page layout option
-- TMS 244 Pro / thermal label printer presets (57mm, 62mm, 100mm roll widths)
-- Print preview modal showing paginated layout before printing
-- Auto/detect printer hints panel with suggested settings per media type
-- Data Manager page: view, rename, export (CSV) saved series
-- Export barcodes as SVG zip / CSV
-- Additional barcode formats: QR placeholder text, DataMatrix note
-- "Print with text below" toggle (already partial, make prominent)
-- More label templates: shipping, asset tag, product
+- **Sky blue + light green gradient background** applied to entire app shell
+- **Hang Tag template** ("hangtag") in LabelTemplates:
+  - Portrait card shape (e.g. 50mm × 80mm default)
+  - Fields: Brand Name, Product Name, SKU, Size, Price with currency selector (£ / $ / ₹)
+  - Barcode printed at bottom of hang tag
+  - Correct print layout: one hang tag per logical unit, correct mm sizing
+- **Barcode detail text customisation**:
+  - Text size dropdown: Small (7pt), Medium (10pt), Large (14pt), XL (18pt)
+  - Per-label detail fields shown alongside barcode: product name, price, SKU, custom text
+  - Large barcode height option (toggle: Normal / Large)
+- **Hang Tag input fields** in GeneratorTab when hangtag template is selected:
+  - Brand, Product Name, SKU, Size, Price, Currency
+- **Correct print format** for all templates including hangtag
 
 ### Modify
-- Header: add user avatar/login button on right
-- Print button: opens print preview modal instead of direct print
-- Sidebar: organized into collapsible sections
-- Footer: keep as-is
+- `src/frontend/src/index.css` -- add sky blue + light green gradient to app background
+- `src/frontend/src/lib/labelTemplates.ts` -- add `"hangtag"` to LabelTemplate type; add LABEL_SIZE_PRESETS entry for hang tag
+- `src/frontend/src/components/LabelCard.tsx` -- add hangtag rendering branch; support large barcode height; support text size enum
+- `src/frontend/src/components/GeneratorTab.tsx` -- add hang tag fields form section; add text size dropdown; add large barcode toggle
+- `src/frontend/src/components/PrintPreviewModal.tsx` -- pass hangtag fields through to LabelCard; ensure hangtag prints correctly
+- `src/frontend/src/utils/print.ts` -- ensure correct page-break and sizing for hangtag print output
+- `src/frontend/src/App.tsx` -- pass new props through to child components
 
 ### Remove
-- Nothing removed
+- Nothing removed; all existing features preserved
 
 ## Implementation Plan
-1. Add authorization component for login/logout
-2. Regenerate backend to support user-scoped series and app settings storage
-3. Build enhanced frontend:
-   a. Navigation menu (tabs/sidebar nav) for Generator, Page Setup, Print Settings, Data Manager
-   b. Login/logout button in header using useInternetIdentity
-   c. Page setup state: paperSize, orientation, margins, labelsPerPage (from page size), one-per-page mode
-   d. Typography state: fontSize, fontFamily
-   e. Color state: barColor, bgColor, textColor, borderColor
-   f. Thermal printer presets panel (TMS 244 Pro, Zebra ZD, Dymo, Generic)
-   g. Print preview modal with paginated barcode layout
-   h. Data Manager tab: table of saved series, rename, export CSV
-   i. Enhanced label card using font/color settings
+1. Update `index.css` with sky blue + light green gradient background
+2. Update `labelTemplates.ts` to add hangtag type and size preset
+3. Update `LabelCard.tsx` to add hangtag branch and text size / large barcode props
+4. Update `GeneratorTab.tsx` to add hang tag fields, text size dropdown, large barcode toggle
+5. Update `PrintPreviewModal.tsx` and `print.ts` to handle hangtag correctly
+6. Update `App.tsx` to wire new props through the component tree
